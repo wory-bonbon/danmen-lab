@@ -8,6 +8,19 @@
 
 ---
 
+## ドキュメントリンク
+
+- ▶ **システム起動（Web）**  
+  https://wory-bonbon.github.io/danmen-lab/
+
+- 📘 **スタートアップガイド（Web）**  
+  https://wory-bonbon.github.io/danmen-lab/3Dscan_measure_startup_guide_v1_7.html
+
+- 🗂 **ガイドのHTML（リポジトリ内）**（ソース参照用）  
+  ./3Dscan_measure_startup_guide_v1_7.html
+
+  ---
+
 ## できること（要点）
 - 断面：水平（床＝BBox MinY）／縦割り（オブジェクト中心からの距離）
 - 計測：周長・幅(U)・厚み(V)・2点距離（ShiftでU/Vにロック）
