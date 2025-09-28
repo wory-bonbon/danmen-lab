@@ -1,5 +1,16 @@
 ﻿<p align="left"><img src="assets/icon_wory-bonbon.png" width="120" alt="danmen-lab logo"></p>
 
+<p align="left">
+  <a href="https://wory-bonbon.github.io/danmen-lab/">
+    <img alt="Run Web"
+      src="https://img.shields.io/badge/Run%20Web-OPEN-%23FF8AD9?style=for-the-badge&labelColor=2B2145" />
+  </a>&nbsp;&nbsp;
+  <a href="https://wory-bonbon.github.io/danmen-lab/3Dscan_measure_startup_guide_v1_7.html">
+    <img alt="Guide"
+      src="https://img.shields.io/badge/Guide-OPEN-%23B58CFF?style=for-the-badge&labelColor=2B2145" />
+  </a>
+</p>
+
 # 断面研究所／danmen-lab — proto v1.7
 
 3Dアバター／衣装の**断面抽出・計測**を、ブラウザだけで軽快に行う最小ツール。  
@@ -10,8 +21,11 @@
 
 ## ドキュメントリンク
 
-[![システム起動](https://img.shields.io/badge/Run%20Web-Open-blueviolet)](https://wory-bonbon.github.io/danmen-lab/)
-[![スタートアップガイド](https://img.shields.io/badge/Guide-Open-informational)](https://wory-bonbon.github.io/danmen-lab/3Dscan_measure_startup_guide_v1_7.html)
+- ▶ **システム起動（Web）**  
+  https://wory-bonbon.github.io/danmen-lab/
+
+- 📘 **スタートアップガイド（Web）**  
+  https://wory-bonbon.github.io/danmen-lab/3Dscan_measure_startup_guide_v1_7.html
 
 - 🗂 **ガイドのHTML（リポジトリ内）**（ソース参照用）  
   ./3Dscan_measure_startup_guide_v1_7.html
