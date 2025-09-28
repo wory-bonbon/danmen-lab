@@ -59,8 +59,9 @@
 
 ## リポジトリ構成（提案）
 
+```text
 3d-section-measure/
-├─ index.html # 公開時は本体をリネーム（任意）
+├─ index.html  # 公開時は本体をリネーム（任意）
 ├─ 3Dscan_measure_v1_7_scaled_export.html
 ├─ 3Dscan_measure_startup_guide_v1_7.html
 ├─ README.md
