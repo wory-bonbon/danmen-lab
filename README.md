@@ -1,4 +1,5 @@
-﻿# 断面研究所／danmen-lab — proto v1.7
+﻿<p align="left"><img src="assets/icon_wory-bonbon.png" width="120" alt="danmen-lab logo"/></p>
+# 断面研究所／danmen-lab — proto v1.7
 
 3Dアバター／衣装の**断面抽出・計測**を、ブラウザだけで軽快に行う最小ツール。  
 **水平（床基準）／縦割りX・Z（中心基準）**の断面を切り、**周長・幅(U)・厚み(V)・2点距離**を表示。  
@@ -68,5 +69,6 @@
 ├─ LICENSE
 ├─ NOTICE
 └─ THIRD_PARTY_NOTICES.md
+
 
 
