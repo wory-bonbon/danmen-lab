@@ -1,4 +1,5 @@
 ﻿<p align="left"><img src="assets/icon_wory-bonbon.png" width="120" alt="danmen-lab logo"/></p>
+
 # 断面研究所／danmen-lab — proto v1.7
 
 3Dアバター／衣装の**断面抽出・計測**を、ブラウザだけで軽快に行う最小ツール。  
