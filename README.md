@@ -1,4 +1,4 @@
-﻿<p align="left"><img src="assets/icon_wory-bonbon.png" width="120" alt="danmen-lab logo"/></p>
+﻿<p align="left"><img src="assets/icon_wory-bonbon.png" width="120" alt="danmen-lab logo"></p>
 
 # 断面研究所／danmen-lab — proto v1.7
 
@@ -10,11 +10,8 @@
 
 ## ドキュメントリンク
 
-- ▶ **システム起動（Web）**  
-  https://wory-bonbon.github.io/danmen-lab/
-
-- 📘 **スタートアップガイド（Web）**  
-  https://wory-bonbon.github.io/danmen-lab/3Dscan_measure_startup_guide_v1_7.html
+[![システム起動](https://img.shields.io/badge/Run%20Web-Open-blueviolet)](https://wory-bonbon.github.io/danmen-lab/)
+[![スタートアップガイド](https://img.shields.io/badge/Guide-Open-informational)](https://wory-bonbon.github.io/danmen-lab/3Dscan_measure_startup_guide_v1_7.html)
 
 - 🗂 **ガイドのHTML（リポジトリ内）**（ソース参照用）  
   ./3Dscan_measure_startup_guide_v1_7.html
