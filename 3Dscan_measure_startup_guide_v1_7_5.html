@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>3Dscan_measure v1.7 スタートアップガイド</title>
-<meta name="description" content="3D アバター／衣装の断面可視化・計測ツール v1.7 用のミニマルガイド。UI説明・ツールバー機能一覧・基本ワークフローを1ページで。">
+<title>断面研究所 v1.7.5 スタートアップガイド</title>
+<meta name="description" content="3D アバター／衣装の断面可視化・計測ツール v1.7.5 用のミニマルガイド。足底自動検出、任意断面、3Dライン付きログなど新機能を紹介します。">
 <style>
 :root{
   --bg:#0b0c0f; --panel:#11151c; --card:#10141b; --ink:#ECF2F8; --mut:#A9B6C8;
@@ -71,13 +71,13 @@ footer{margin-top:26px;color:#8fa1b9;font-size:12px;text-align:center;opacity:.9
     <div class="h-left">
       <div class="logo"></div>
       <div>
-        <h1>3Dscan_measure v1.7 スタートアップガイド</h1>
-        <p class="lead">「断面の可視化」と「比較用エクスポート」を、最小UIで。マウスだけで運用できます。</p>
+        <h1>断面研究所 v1.7.5 スタートアップガイド</h1>
+        <p class="lead">「断面の可視化」「計測ログ3Dライン」「比較用エクスポート」を、最小UIで。マウスだけで運用できます。</p>
       </div>
     </div>
     <div>
-      <span class="badge">Version v1.7</span>
-      <span class="badge">Seed <small>2025-09-28-guide-v17-001</small></span>
+      <span class="badge">Version v1.7.5</span>
+      <span class="badge">Seed <small>2025-09-28-guide-v1_7_5-001</small></span>
     </div>
   </div>
 
@@ -85,15 +85,16 @@ footer{margin-top:26px;color:#8fa1b9;font-size:12px;text-align:center;opacity:.9
     <section class="card">
       <h2>このツールでできること（要約）</h2>
       <ul class="ul">
-        <li>3Dアバター／衣装から<strong>任意断面</strong>を抽出（水平／縦割りX／縦割りZ）</li>
-        <li><strong>周長・幅(U)・厚み(V)・2点距離</strong>を即時計測（Shiftで軸ロック）</li>
+        <li>3Dアバター／衣装から<strong>任意断面</strong>を抽出（水平／縦割りX／縦割りZ／任意方向）</li>
+        <li><strong>周長・幅(U)・厚み(V)・2点距離</strong>を即時計測（<span class="kbd">Shift</span> で軸ロック）</li>
         <li>ラベルは<strong>ドラッグで配置</strong>（ダブルクリックで原点に戻す）</li>
-        <li><span class="tag tag-green">Capture</span> = 画面PNG保存＋<strong>計測ログ記録</strong>（CSV書き出し）</li>
+        <li><span class="tag tag-green">Capture</span> = 画面PNG保存＋<strong>計測ログ記録</strong>＋<strong>3Dライン保存</strong>（CSV書き出し）</li>
         <li><span class="tag tag-amber">Export @Scale</span> = <strong>オルソ＋固定スケール</strong>でPNG出力（ズーム非依存）</li>
         <li>メッシュの<strong>ワイヤ色</strong>／断面ラインの<strong>通常色・選択色</strong>を即変更</li>
+        <li><strong>足底自動検出</strong>や<BBox底面／Y=0＞から足底設定、<strong>単位選択</strong>も可能</li>
       </ul>
       <div class="callout" style="margin-top:10px">
-        <strong>ポイント：</strong>比較用のPNGは <span class="tag tag-amber">Export @Scale</span> を使うと縮尺が揃います（画面ズームの影響なし）。
+        <strong>ポイント：</strong>Capture は画面PNGと計測ログに加えて <span class="tag tag-green">3Dライン</span> を記録します。ログパネルからラインの表示/非表示や削除、太さ変更が行えます。
       </div>
     </section>
 
@@ -104,8 +105,9 @@ footer{margin-top:26px;color:#8fa1b9;font-size:12px;text-align:center;opacity:.9
         <tr><th>断面選択</th><td>断面ラインをクリック（<span class="tag tag-blue">選択色</span>に変化）</td></tr>
         <tr><th>2点距離</th><td>選択断面上を2クリック。<span class="kbd">Shift</span>でU/V軸にロック</td></tr>
         <tr><th>ラベル</th><td>周長・幅/厚みのラベルをドラッグで移動／ダブルクリックでリセット</td></tr>
+        <tr><th>ログ</th><td>ログパネルは <span class="tag">Log: ON</span> で表示。👁でライン表示切替、×で削除。</td></tr>
       </table>
-      <p class="note">※ 断面は <span class="tag">H</span> 水平／<span class="tag">VX</span> 縦割りX／<span class="tag">VZ</span> 縦割りZ の3種。</p>
+      <p class="note">※ 断面は <span class="tag">H</span> 水平／<span class="tag">VX</span> 縦割りX／<span class="tag">VZ</span> 縦割りZ／任意方向の4種。</p>
     </section>
   </div>
 
@@ -114,37 +116,46 @@ footer{margin-top:26px;color:#8fa1b9;font-size:12px;text-align:center;opacity:.9
 
     <h3>1) ファイル・姿勢・断面タイプ</h3>
     <div class="row">
-      <span class="tag">Open</span><span class="tag">Rotate X/Y/Z</span><span class="tag">Reset Rot</span>
-      <span class="tag">Section: H / VX / VZ</span><span class="tag">Align X/Y/Z</span>
+      <span class="tag">Open</span><span class="tag">Rotate X/Y/Z</span><span class="tag">Reset View</span>
+      <span class="tag">Section: H / VX / VZ</span><span class="tag">Align Y/X/Z</span>
     </div>
-    <p>向きが合ったら「Section」を選択。<strong>Align</strong>は断面法線を各軸にスナップ。</p>
+    <p>モデルを読み込んだら向きを整え、「Section」を選択。<strong>Align</strong>で断面法線を各軸にスナップします。</p>
 
-    <h3>2) 床基準 / 中心基準の数値入力</h3>
+    <h3>2) 断面方向とオフセット</h3>
     <div class="row">
-      <span class="tag">Ground: 底面検出</span><span class="tag">Height(mm)</span><span class="tag">中心から距離(mm)</span><span class="tag">適用</span>
+      <span class="tag">nx/ny/nz</span><span class="tag">Offset</span><span class="tag">Offset 0/±</span>
+      <span class="tag">Rebuild Section</span>
     </div>
-    <p>水平は「底面（BBox MinY）」からの高さで固定。縦割りは「オブジェクト中心」からの距離で固定。</p>
+    <p>縦割りや任意断面では法線ベクトル（nx/ny/nz）とオフセット値を調整し <strong>Rebuild Section</strong> で断面を再構築します。</p>
 
-    <h3>3) 表示と計測</h3>
+    <h3>3) 床基準 / 中心基準の設定</h3>
     <div class="row">
-      <span class="tag">View ⟂</span><span class="tag">Flip</span><span class="tag">Solo View</span>
-      <span class="tag">Caliper</span><span class="tag">Snap: AUTO/U/V</span>
+      <span class="tag">足底自動検出</span><span class="tag">BBox底面</span><span class="tag">Y=0</span><span class="tag">この位置を0mm</span>
+      <span class="tag">Ground Y(mm)</span><span class="tag">Height(mm)</span><span class="tag">中心から距離(mm)</span><span class="tag">適用</span>
     </div>
-    <p>正対表示は <span class="tag">View ⟂</span>。<span class="tag">Caliper</span>で最大幅U・最大厚みVを自動抽出。</p>
+    <p>水平断面では足底を設定し、<strong>Height(mm)</strong> に高さを入力して適用。縦割りではオブジェクト中心からの距離を指定します。</p>
 
-    <h3>4) 見やすさ</h3>
+    <h3>4) 表示と計測</h3>
+    <div class="row">
+      <span class="tag">View ⟂</span><span class="tag">Flip View</span><span class="tag">Up Axis U/V</span>
+      <span class="tag">Solo View</span><span class="tag">Caliper</span><span class="tag">Snap: AUTO/U/V</span><span class="tag">Normal Snap</span>
+    </div>
+    <p><span class="tag">View ⟂</span> で断面に正対し、<span class="tag">Caliper</span> で最大幅U・最大厚みVを自動抽出。<span class="tag">Up Axis</span> で画面縦方向をU/Vに切替できます。</p>
+
+    <h3>5) 色設定</h3>
     <div class="row">
       <span class="tag">Wireframe ON/OFF</span><span class="tag">Wire color</span>
       <span class="tag">Section line</span><span class="tag">Selected</span>
     </div>
-    <p>暗背景で沈みにくい色へ即変更可能。色設定はブラウザに保存。</p>
+    <p>暗背景で沈みにくい色へ即変更可能。色設定はブラウザに保存されます。</p>
 
-    <h3>5) 保存・ログ・比較</h3>
+    <h3>6) 単位・保存・ログ・比較</h3>
     <div class="row">
-      <span class="tag tag-green">Capture</span><span class="tag">Save PNG</span>
-      <span class="tag tag-amber">Export @Scale</span><span class="tag">Log CSV</span>
+      <span class="tag">Model unit</span><span class="tag">Unit</span>
+      <span class="tag">Save PNG</span><span class="tag tag-green">Capture</span>
+      <span class="tag tag-amber">Export @Scale</span><span class="tag">Log: ON/OFF</span>
     </div>
-    <p><span class="tag tag-green">Capture</span>は「画面PNG＋計測ログ記録」。<span class="tag tag-amber">Export @Scale</span>は「オルソ＋固定スケール（mm/px）」で縮尺統一のPNG出力。</p>
+    <p><span class="tag">Model unit</span> と <span class="tag">Unit</span> でモデル単位と表示単位を切替。<span class="tag tag-green">Capture</span> はログ＋PNG＋3Dライン保存、<span class="tag tag-amber">Export @Scale</span> は比較用の固定スケールPNGを書き出します。</p>
   </section>
 
   <div class="grid">
@@ -152,21 +163,22 @@ footer{margin-top:26px;color:#8fa1b9;font-size:12px;text-align:center;opacity:.9
       <h2>基本ワークフロー（水平＝床基準）</h2>
       <ol class="ul">
         <li>モデル読込 → <span class="tag">Rotate</span> で正位置</li>
-        <li><span class="tag">Section: H</span> → <span class="tag">底面検出</span></li>
+        <li><span class="tag">足底自動検出</span>（または <span class="tag">BBox底面</span> / <span class="tag">Y=0</span>）→ 必要なら <span class="tag">この位置を0mm</span></li>
         <li><span class="tag">Height(mm)</span> に数値（例：<strong>900</strong>）→ <span class="tag">適用</span></li>
         <li><span class="tag">View ⟂</span> → <span class="tag">Caliper</span> → <span class="tag">Solo View</span></li>
-        <li><span class="tag tag-green">Capture</span>（PNG＋ログ）/ <span class="tag tag-amber">Export @Scale</span>（比較用）</li>
+        <li><span class="tag tag-green">Capture</span>（PNG＋ログ＋3Dライン）/ <span class="tag tag-amber">Export @Scale</span>（比較用）</li>
       </ol>
-      <p class="note">腰の標準比較なら 900mm 目安。スケール比較は Export @Scale を使用。</p>
+      <p class="note">腰の標準比較なら 900mm 目安。スケール比較は Export @Scale を使用。</p>
     </section>
 
     <section class="card">
       <h2>基本ワークフロー（縦割り＝中心基準）</h2>
       <ol class="ul">
-        <li><span class="tag">Section: VX</span>（左右） or <span class="tag">VZ</span>（前後）</li>
+        <li><span class="tag">Section: VX</span>（左右） または <span class="tag">VZ</span>（前後）</li>
         <li><span class="tag">中心から距離(mm)</span> に数値（<strong>0</strong> で中央）→ <span class="tag">適用</span></li>
-        <li><span class="tag">View ⟂</span> → 必要に応じて <span class="tag">Caliper</span></li>
-        <li><span class="tag tag-amber">Export @Scale</span>（同縮尺PNG出力）</li>
+        <li><span class="tag">nx/ny/nz</span> と <span class="tag">Offset</span> を調整して <span class="tag">Rebuild Section</span>（任意方向の場合）</li>
+        <li><span class="tag">View ⟂</span> → 必要に応じて <span class="tag">Caliper</span> / <span class="tag">Up Axis</span> 切替</li>
+        <li><span class="tag tag-green">Capture</span>（PNG＋ログ＋3Dライン） または <span class="tag tag-amber">Export @Scale</span></li>
       </ol>
     </section>
   </div>
@@ -174,7 +186,7 @@ footer{margin-top:26px;color:#8fa1b9;font-size:12px;text-align:center;opacity:.9
   <section class="card">
     <h2>比較用エクスポートのプリセット例</h2>
     <div class="row">
-      <span class="tag tag-amber">Export @Scale</span>
+      <span class="tag tag-amber">Export @Scale</span>
       <span class="tag">mm/px: 1.00</span>
       <span class="tag">W×H: 1200×1200 px</span>
       <span class="tag">Margin: 80 px</span>
@@ -184,16 +196,16 @@ footer{margin-top:26px;color:#8fa1b9;font-size:12px;text-align:center;opacity:.9
   </section>
 
   <section class="card">
-    <h2>単位・ズーム依存性・ラベル</h2>
+    <h2>単位・ズーム非依存・ラベル</h2>
     <ul class="ul">
-      <li><strong>Model unit</strong> は OBJ=mm、GLB/GLTF=cm を起点に確認（表示単位は自由）</li>
-      <li><strong>Export @Scale</strong> は画面のズーム/パンに<strong>非依存</strong>（固定スケールで出力）</li>
+      <li><strong>Model unit</strong> でモデルファイルの単位（auto/mm/cm/m/inch）を指定、<strong>Unit</strong> で表示単位を変更</li>
+      <li><strong>Export @Scale</strong> は画面のズーム/パンに<strong>非依存</strong>（固定スケールで出力）</li>
       <li>ラベル（周長／幅・厚み）は<strong>ドラッグ移動</strong>、ダブルクリックで初期位置へ</li>
     </ul>
   </section>
 
   <footer>
-    © 2025 3Dscan_measure v1.7 Guide — Minimal & Focused. / 配布用にこのHTMLを同梱してください。
+    © 2025 断面研究所 v1.7.5 Guide — Minimal & Focused. / 配布用にこのHTMLを同梱してください。
   </footer>
 </div>
 </body>

@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>3Dscan_measure v1.6（Rotate / Ground Height / Vertical Center / Capture Log）</title>
+<title>断面研究所 v1.7.5（計測ログ3Dライン）</title>
 <style>
-  :root{--bg:#0b0c0f;--panel:#14161acc;--fg:#e8e8ea;--mut:#9aa3b2;--hl:#47a3ff;--ok:#35d07f;--warn:#ffb31a}
+  :root{--bg:#0b0c0f;--panel:#14161acc;--fg:#e8e8ea;--mut:#9aa3b2;--hl:#47a3ff;--ok:#35d07f;--warn:#ffb31a;--err:#ff5a5a}
   html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,"Noto Sans JP",sans-serif}
   #toolbar{position:fixed;top:12px;left:12px;right:12px;z-index:20;display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:var(--panel);backdrop-filter:blur(8px);padding:10px 12px;border-radius:12px}
   #toolbar input[type="range"]{width:140px}
@@ -33,10 +33,25 @@
     background:var(--panel);border:1px solid #2d3c55;border-radius:10px;
     padding:10px;min-width:300px;max-width:420px;max-height:40vh;overflow:auto;font-size:12px;display:none}
   #logPanel header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-  #logPanel ol{margin:0;padding-left:16px}
-/* extra styles for export scale */
-.miniRow{display:flex;gap:8px;align-items:center}
-.miniRow input{width:80px}
+  #logPanel ol{margin:0;padding-left:0;list-style:none}
+
+  .miniRow{display:flex;gap:8px;align-items:center}
+  .miniRow input{width:80px}
+
+  /* Toast通知 */
+  #toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:100;
+    background:var(--panel);border:1px solid #2d3c55;border-radius:10px;
+    padding:12px 20px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
+  #toast.show{opacity:1}
+  #toast.error{border-color:var(--err);color:var(--err)}
+  #toast.success{border-color:var(--ok);color:var(--ok)}
+
+  /* ローディング */
+  #loading{position:fixed;inset:0;z-index:99;display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.6);backdrop-filter:blur(4px)}
+  #loading.show{display:flex}
+  .spinner{width:48px;height:48px;border:4px solid #333;border-top-color:var(--hl);border-radius:50%;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 
 <script async src="https://cdn.jsdelivr.net/npm/es-module-shims@1.10.0/dist/es-module-shims.min.js"></script>
@@ -52,7 +67,10 @@
 <body>
 <div id="toolbar">
   <input id="file" type="file" accept=".gltf,.glb,.obj" multiple />
-  <button id="wireBtn">Wireframe: OFF</button><label>Wire color<input id="wireColor" type="color" value="#FFC857" title="ワイヤーの色（キャプチャ差別化用）"></label><label>Section line<input id="secColor" type="color" value="#47A3FF" title="断面ラインの色"></label><label>Selected<input id="selColor" type="color" value="#35D07F" title="選択中断面の色"></label>
+  <button id="wireBtn">Wireframe: OFF</button>
+  <label>Wire color<input id="wireColor" type="color" value="#FFC857" title="ワイヤーの色（キャプチャ差別化用）"></label>
+  <label>Section line<input id="secColor" type="color" value="#47A3FF" title="断面ラインの色"></label>
+  <label>Selected<input id="selColor" type="color" value="#35D07F" title="選択中断面の色"></label>
   <button id="clipBtn">Clip Mesh: ON</button>
 
   <label>Nx<input id="nx" type="range" min="-1" max="1" step="0.01" value="0"></label>
@@ -63,7 +81,7 @@
   <button id="off0Btn">Offset 0</button><button id="offMinusBtn">−</button><button id="offPlusBtn">＋</button>
 
   <label>Model unit
-    <select id="modelUnitSel" title="このファイルの1 unit は何か？">
+    <select id="modelUnitSel" title="このファイルの1 unitは何か？">
       <option value="auto" selected>auto</option>
       <option value="mm">mm</option>
       <option value="cm">cm</option>
@@ -75,7 +93,7 @@
     <select id="unitSel" title="表示単位（距離の見せ方）">
       <option value="mm">mm</option>
       <option value="cm" selected>cm</option>
-      <option value="m">mt</option>
+      <option value="m">m</option>
       <option value="inch">inch</option>
     </select>
   </label>
@@ -84,7 +102,15 @@
   <button id="resetBtn">Reset View</button>
   <button id="saveBtn">Save PNG</button>
   <button id="captureBtn" title="PNG保存＋ログ記録">Capture</button>
-  <button id="caliperBtn">Caliper</button><div class="miniRow"><span style="color:#9aa3b2;font-size:12px">Export@Scale</span><label>mm/px <input id="expMmPerPx" type="number" min="0.01" step="0.01" value="1.00" title="1pxあたりのmm（固定スケール）"></label><label>W(px) <input id="expWpx" type="number" min="256" step="1" value="1200"></label><label>H(px) <input id="expHpx" type="number" min="256" step="1" value="1200"></label><label>Margin(px) <input id="expMargin" type="number" min="0" step="1" value="80"></label><button id="exportScaleBtn" title="固定スケール（オルソ）でPNG書き出し">Export @Scale</button></div>
+  <button id="caliperBtn">Caliper</button>
+  <div class="miniRow">
+    <span style="color:#9aa3b2;font-size:12px">Export@Scale</span>
+    <label>mm/px <input id="expMmPerPx" type="number" min="0.01" step="0.01" value="1.00" title="1pxあたりのmm（固定スケール）"></label>
+    <label>W(px) <input id="expWpx" type="number" min="256" step="1" value="1200"></label>
+    <label>H(px) <input id="expHpx" type="number" min="256" step="1" value="1200"></label>
+    <label>Margin(px) <input id="expMargin" type="number" min="0" step="1" value="80"></label>
+    <button id="exportScaleBtn" title="固定スケール（オルソ）でPNG書き出し">Export @Scale</button>
+  </div>
   <button id="snapModeBtn">Snap: AUTO</button>
 
   <button id="alignYBtn">Align Y（水平）</button>
@@ -99,7 +125,7 @@
   <button id="normalSnapBtn" title="最寄りの軸(X/Y/Z)へ90°スナップ">Normal: FREE</button>
   <button id="logToggleBtn" title="計測ログの表示/非表示">Log: OFF</button>
 
-  <span class="badge">Seed: 2025-09-28-v1_6-capture-logs</span>
+  <span class="badge">v1.7.5</span>
 
   <div class="sep"></div>
   <div class="row" style="display:flex;gap:8px;align-items:center">
@@ -125,7 +151,11 @@
 
   <div class="row" id="hRow" style="display:flex;gap:8px;align-items:center">
     <span style="color:#9aa3b2;font-size:12px">Ground</span>
-    <button id="groundBtn" title="BBoxの最小Yを底面に採用">底面検出</button>
+    <button id="autoFootBtn" title="人体の足底を自動検出（周長15〜100cmの閉ループを探索）" style="background:#2a3a4a;border-color:#3a5a6a">足底自動検出</button>
+    <button id="groundBtn" title="BBoxの最小Yを底面に採用">BBox底面</button>
+    <button id="groundY0Btn" title="Y=0を足底として採用">Y=0</button>
+    <button id="setCurrentAsGroundBtn" title="現在の断面位置を足底(0mm)として設定" style="background:#2a4a3a;border-color:#3a6a4a">この位置を0mm</button>
+    <label>Ground Y(mm)<input id="groundYMm" style="width:72px" type="number" step="1" value="0" title="現在の足底Y座標(mm)"></label>
     <label>Height(mm)<input id="heightMm" style="width:96px" type="number" step="1" value="900"></label>
     <button id="applyHeightBtn">適用</button>
   </div>
@@ -136,10 +166,10 @@
   </div>
 </div>
 
-<div id="hud">周長: —<br>閉ループ: —<br>点‐点: —<br>縦横(平面U/V)距離(Shift): —<br>Offset実距離: —<br>幅(V:左右) / 厚み(U:前後): —</div>
+<div id="hud">周長: —<br>閉ループ: —<br>点→点: —<br>縦横(平面U/V)距離(Shift): —<br>Offset実距離: —<br>幅(V:左右) / 厚み(U:前後): —</div>
 <div id="hint">
-  読込 → <b>Rotate</b>で正位置 → <b>Section</b>選択 → <b>Height/距離</b>入力 → <b>View ⟂</b> → PNG/CSV。<br>
-  水平＝底面（BBox MinY）からの高さ、縦割り＝オブジェクト中心からの距離。タグはドラッグで移動、ダブルクリックでリセット。
+  読込 → <b>足底自動検出</b> → <b>Height</b>入力 → <b>適用</b> → <b>View ⟂</b> → <b>Capture</b>（PNG + ログ + 3Dライン）。<br>
+  <b>Log: ON</b>でログパネル表示。各ログの👁で表示/非表示、×で削除（3Dラインも連動）。
 </div>
 <div id="drop"><div>ここに .glb / .gltf / .obj をドロップ（複数可：体＋衣装）</div></div>
 <canvas id="c"></canvas>
@@ -147,15 +177,40 @@
 <div id="caliperLabel"></div>
 
 <div id="logPanel">
-  <header><strong>計測ログ</strong><span><button id="logCsvBtn">CSV</button> <button id="logClearBtn">クリア</button></span></header>
+  <header>
+    <strong>計測ログ</strong>
+    <span>
+      <label style="font-size:11px">Line太さ<input id="logLineWidth" type="number" min="1" max="10" value="2" style="width:40px"></label>
+      <button id="logLinesToggleBtn" title="全ラインの表示/非表示">👁</button>
+      <button id="logCsvBtn">CSV</button>
+      <button id="logClearBtn">クリア</button>
+    </span>
+  </header>
+  <div style="font-size:10px;color:#9aa3b2;margin-bottom:6px">Capture時に3Dラインを記録（セッション中のみ保持）</div>
   <ol id="logList"></ol>
 </div>
+
+<div id="toast"></div>
+<div id="loading"><div class="spinner"></div></div>
 
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
+
+/* ===== Toast通知 ===== */
+const toastEl = document.getElementById("toast");
+function showToast(msg, type="info", duration=3000){
+  toastEl.textContent = msg;
+  toastEl.className = "show " + type;
+  setTimeout(()=>{ toastEl.className = ""; }, duration);
+}
+
+/* ===== ローディング ===== */
+const loadingEl = document.getElementById("loading");
+function showLoading(){ loadingEl.classList.add("show"); }
+function hideLoading(){ loadingEl.classList.remove("show"); }
 
 /* ===== 基本セットアップ ===== */
 const canvas = document.getElementById("c");
@@ -194,6 +249,13 @@ let sectionPolylines = []; let selectedPolyline = null; let selectedPerimeterRaw
 
 const overlayGroup = new THREE.Group(); scene.add(overlayGroup);
 const caliperGroup = new THREE.Group(); scene.add(caliperGroup);
+const logLinesGroup = new THREE.Group(); scene.add(logLinesGroup);
+
+/* ログ3Dライン管理（セッション中のみ） */
+let logLineEntries = []; // { id, line, visible, color }
+let logLineIdCounter = 0;
+const logLineColors = [0xff6b6b, 0x4ecdc4, 0xffe66d, 0x95e1d3, 0xf38181, 0xaa96da, 0xfcbad3, 0xa8d8ea];
+function getLogLineColor(idx){ return logLineColors[idx % logLineColors.length]; }
 
 /* UI要素 */
 const toolbar = document.getElementById("toolbar");
@@ -211,7 +273,11 @@ const $offset = document.getElementById("offset");
 const sectionModeSel = document.getElementById("sectionModeSel");
 const hRow = document.getElementById("hRow");
 const vRow = document.getElementById("vRow");
+const autoFootBtn = document.getElementById("autoFootBtn");
 const groundBtn = document.getElementById("groundBtn");
+const groundY0Btn = document.getElementById("groundY0Btn");
+const setCurrentAsGroundBtn = document.getElementById("setCurrentAsGroundBtn");
+const groundYMm = document.getElementById("groundYMm");
 const heightMm = document.getElementById("heightMm");
 const applyHeightBtn = document.getElementById("applyHeightBtn");
 const vOffsetMm = document.getElementById("vOffsetMm");
@@ -227,19 +293,158 @@ let snapMode = "auto";
 let normalSnap = "FREE"; // FREE / AXIS
 let groundY = 0; // BBox MinY
 
-/* ===== 単位換算 ===== */
+/* ===== 単位変換 ===== */
 let autoModelUnitToCmGuess = 1.0;
 function modelUnitToCm(){ const v=modelUnitSel.value; if(v==="mm")return .1; if(v==="cm")return 1; if(v==="m")return 100; if(v==="inch")return 2.54; return autoModelUnitToCmGuess; }
 function displayFactorFromCm(){ switch(unitSel.value){ case "mm":return 10; case "cm":return 1; case "m":return .01; case "inch":return 1/2.54; default:return 1; } }
-function unitSuffix(){ return (unitSel.value==="inch")?"in":(unitSel.value==="m"?"mt":unitSel.value); }
+function unitSuffix(){ return (unitSel.value==="inch")?"in":(unitSel.value==="m"?"m":unitSel.value); }
 function toDisplay(dModelUnits){ return dModelUnits * modelUnitToCm() * displayFactorFromCm(); }
 function mmToModel(mm){ return (mm/10) / modelUnitToCm(); } // mm -> model units
+function modelToMm(modelUnits){ return modelUnits * modelUnitToCm() * 10; } // model units -> mm
+function updateGroundYDisplay(){ groundYMm.value = Math.round(modelToMm(groundY)); }
 
 /* ===== Utils ===== */
 function lengthOfPolyline(pts, closed){ if(!pts||pts.length<2) return 0; let L=0; for(let i=0;i<pts.length-1;i++) L+=pts[i].distanceTo(pts[i+1]); if(closed) L+=pts.at(-1).distanceTo(pts[0]); return L; }
 function polylineCentroid(pts){ const c=new THREE.Vector3(); for(const p of pts) c.add(p); return c.multiplyScalar(1/pts.length); }
 function worldToScreen(v){ const p=v.clone().project(camera); return [(p.x*0.5+0.5)*innerWidth, (-p.y*0.5+0.5)*innerHeight]; }
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+/* ===== 足底自動検出 ===== */
+function computeSectionAtY(yVal){
+  // 指定Y座標での水平断面のポリラインを計算し、最大の閉ループ周長を返す
+  if(!loadedMeshes.length) return { maxClosedPerim: 0, found: false };
+  
+  const n = new THREE.Vector3(0, 1, 0);
+  const c = -yVal;
+  const segs = [];
+  const eps = Math.max(1e-6, bboxSize * 1e-6);
+  const mergeEps = Math.max(1e-5, bboxSize * 1e-5);
+  const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3(), _world = new THREE.Matrix4();
+  const planeSide = (p) => n.dot(p) + c;
+  const lerpOnPlane = (p0, p1, s0, s1) => { const t = s0 / (s0 - s1); return p0.clone().lerp(p1, t); };
+
+  for(const mesh of loadedMeshes){
+    const geom = mesh.geometry, pos = geom.getAttribute('position'); 
+    if(!pos) continue;
+    _world.copy(mesh.matrixWorld);
+    const idx = geom.index ? geom.index.array : null;
+    const tri = idx ? (idx.length / 3) : (pos.count / 3);
+    const isSkinned = mesh.isSkinnedMesh === true && mesh.skeleton;
+    if(isSkinned) mesh.skeleton.update();
+    const getV = (i, out) => { 
+      if(isSkinned){ mesh.boneTransform(i, out); out.applyMatrix4(mesh.matrixWorld); } 
+      else { out.fromBufferAttribute(pos, i).applyMatrix4(_world); } 
+      return out; 
+    };
+
+    for(let i = 0; i < tri; i++){
+      const ia = idx ? idx[i*3] : i*3;
+      const ib = idx ? idx[i*3+1] : i*3+1;
+      const ic = idx ? idx[i*3+2] : i*3+2;
+      getV(ia, vA); getV(ib, vB); getV(ic, vC);
+      const sa = planeSide(vA), sb = planeSide(vB), sc = planeSide(vC);
+      if((sa > 0 && sb > 0 && sc > 0) || (sa < 0 && sb < 0 && sc < 0)) continue;
+      const pts = [];
+      const edge = (p0, p1, s0, s1) => { 
+        if((s0 > 0 && s1 < 0) || (s0 < 0 && s1 > 0)) pts.push(lerpOnPlane(p0, p1, s0, s1)); 
+        else if(Math.abs(s0) < eps) pts.push(p0.clone()); 
+        else if(Math.abs(s1) < eps) pts.push(p1.clone()); 
+      };
+      edge(vA, vB, sa, sb); edge(vB, vC, sb, sc); edge(vC, vA, sc, sa);
+      if(pts.length === 2) segs.push({a: pts[0], b: pts[1]});
+      else if(pts.length > 2){
+        let max = -1, pa = pts[0], pb = pts[1];
+        for(let u = 0; u < pts.length; u++){
+          for(let v = u + 1; v < pts.length; v++){
+            const d = pts[u].distanceToSquared(pts[v]);
+            if(d > max){ max = d; pa = pts[u]; pb = pts[v]; }
+          }
+        }
+        segs.push({a: pa, b: pb});
+      }
+    }
+  }
+  
+  if(segs.length === 0) return { maxClosedPerim: 0, found: false };
+  
+  // stitchしてポリライン化
+  const key = v => `${Math.round(v.x/mergeEps)},${Math.round(v.y/mergeEps)},${Math.round(v.z/mergeEps)}`;
+  const map = new Map();
+  const add = (p, q) => { const k = key(p); if(!map.has(k)) map.set(k, []); map.get(k).push(q); };
+  for(const s of segs){ add(s.a, s.b); add(s.b, s.a); }
+  const used = new Set();
+  function nextPoint(p){ 
+    const ks = key(p), arr = map.get(ks) || []; 
+    for(const q of arr){ 
+      const e = ks + "|" + key(q); 
+      if(!used.has(e)){ used.add(e); used.add(key(q) + "|" + ks); return q; } 
+    } 
+    return null; 
+  }
+  
+  let maxClosedPerim = 0;
+  for(const s of segs){
+    const e0 = key(s.a) + "|" + key(s.b); 
+    if(used.has(e0)) continue;
+    const poly = [s.a.clone(), s.b.clone()]; 
+    used.add(e0); 
+    used.add(key(s.b) + "|" + key(s.a));
+    while(true){ const last = poly.at(-1); const nxt = nextPoint(last); if(!nxt) break; poly.push(nxt.clone()); }
+    while(true){ const first = poly[0]; const nxt = nextPoint(first); if(!nxt) break; poly.unshift(nxt.clone()); }
+    const closed = poly[0].distanceTo(poly.at(-1)) < mergeEps * 2;
+    if(closed){
+      const perim = lengthOfPolyline(poly, true);
+      if(perim > maxClosedPerim) maxClosedPerim = perim;
+    }
+  }
+  
+  return { maxClosedPerim, found: maxClosedPerim > 0 };
+}
+
+function autoDetectFootBase(){
+  // BBox下端から上方向にスキャンし、人体らしい周長（20〜80cm）の閉ループが出る位置を探す
+  if(!loadedMeshes.length){ showToast("モデルが読み込まれていません", "error"); return; }
+  
+  showLoading();
+  
+  // 非同期で実行（UIをブロックしない）
+  setTimeout(() => {
+    const stepMm = 5; // 5mm刻み
+    const stepModel = mmToModel(stepMm);
+    const maxSteps = 200; // 最大1000mm（1m）スキャン
+    const minPerimCm = 15; // 足首の最小周長 15cm
+    const maxPerimCm = 100; // 足首の最大周長 100cm
+    
+    let foundY = null;
+    let startY = bboxMin.y;
+    
+    for(let i = 0; i < maxSteps; i++){
+      const testY = startY + stepModel * i;
+      const result = computeSectionAtY(testY);
+      
+      if(result.found){
+        const perimCm = result.maxClosedPerim * modelUnitToCm();
+        // 人体らしい周長（床メッシュは巨大なので除外される）
+        if(perimCm >= minPerimCm && perimCm <= maxPerimCm){
+          foundY = testY;
+          break;
+        }
+      }
+    }
+    
+    hideLoading();
+    
+    if(foundY !== null){
+      groundY = foundY;
+      updateGroundYDisplay();
+      heightMm.value = "0";
+      applySectionFromUI();
+      showToast(`足底検出完了: Y=${modelToMm(groundY).toFixed(0)}mm`, "success");
+    } else {
+      showToast("足底を自動検出できませんでした。手動で設定してください。", "error", 5000);
+    }
+  }, 50);
+}
 
 /* ===== HUD / ラベル：ヘッダー下に自動退避 & 画面内クランプ ===== */
 function safeTop(){ return toolbar.getBoundingClientRect().bottom + 8; }
@@ -251,8 +456,8 @@ function clampLabelXY(x,y){
   return [xClamped, yClamped];
 }
 let perimOffset = {dx:0,dy:0}, caliperOffset = {dx:0,dy:0};
-try{ const saved=JSON.parse(localStorage.getItem("v1_6_tagOffsets")||"{}"); if(saved.perimOffset) perimOffset=saved.perimOffset; if(saved.caliperOffset) caliperOffset=saved.caliperOffset; }catch{}
-function persistTagOffsets(){ try{localStorage.setItem("v1_6_tagOffsets", JSON.stringify({perimOffset,caliperOffset}));}catch{} }
+try{ const saved=JSON.parse(localStorage.getItem("v1_7_tagOffsets")||"{}"); if(saved.perimOffset) perimOffset=saved.perimOffset; if(saved.caliperOffset) caliperOffset=saved.caliperOffset; }catch{}
+function persistTagOffsets(){ try{localStorage.setItem("v1_7_tagOffsets", JSON.stringify({perimOffset,caliperOffset}));}catch{} }
 function updatePerimLabelText(){ if(selectedPolyline&&selectedPerimeterRaw!=null){ perimLabel.textContent=`周長 ${toDisplay(selectedPerimeterRaw).toFixed(2)} ${unitSuffix()}`; perimLabel.style.display="block"; } else perimLabel.style.display="none"; }
 function updatePerimLabelPosition(){ if(selectedPolyline?.points?.length){ let [x,y]=worldToScreen(polylineCentroid(selectedPolyline.points)); [x,y]=clampLabelXY(x+perimOffset.dx,y+perimOffset.dy); perimLabel.style.left=`${x}px`; perimLabel.style.top=`${y}px`; } }
 let caliperWU=null, caliperDV=null;
@@ -272,7 +477,7 @@ function updateHUD(distPP, distAxis, offsetReal){
   const a=distAxis!=null?`${toDisplay(distAxis).toFixed(2)} ${u}`:"—";
   const off=(lastOffsetReal!=null)?`${toDisplay(lastOffsetReal).toFixed(2)} ${u}`:"—";
   const cal=(caliperWU!=null&&caliperDV!=null)?`${toDisplay(caliperWU).toFixed(2)} / ${toDisplay(caliperDV).toFixed(2)} ${u}`:"—";
-  hud.innerHTML=`周長: ${perimVal}<br>閉ループ: ${closed}<br>点‐点: ${d}<br>縦横(平面U/V)距離(Shift): ${a}<br>Offset実距離: ${off}<br>幅(V:左右) / 厚み(U:前後): ${cal}`;
+  hud.innerHTML=`周長: ${perimVal}<br>閉ループ: ${closed}<br>点→点: ${d}<br>縦横(平面U/V)距離(Shift): ${a}<br>Offset実距離: ${off}<br>幅(V:左右) / 厚み(U:前後): ${cal}`;
   updatePerimLabelText(); updatePerimLabelPosition();
   updateCaliperLabel(); updateCaliperLabelPosition();
   setHUDTop();
@@ -305,13 +510,13 @@ const secColorInput = document.getElementById("secColor");
 const selColorInput = document.getElementById("selColor");
 (function restoreLineColors(){
   try{
-    const s = JSON.parse(localStorage.getItem("v1_6_linecolors")||"{}");
+    const s = JSON.parse(localStorage.getItem("v1_7_linecolors")||"{}");
     if(s.sec) secColorInput.value = s.sec;
     if(s.sel) selColorInput.value = s.sel;
   }catch{}
 })();
 function persistLineColors(){
-  try{ localStorage.setItem("v1_6_linecolors", JSON.stringify({sec:secColorInput.value, sel:selColorInput.value})); }catch{}
+  try{ localStorage.setItem("v1_7_linecolors", JSON.stringify({sec:secColorInput.value, sel:selColorInput.value})); }catch{}
 }
 function applySectionLineColors(){
   const normal = new THREE.Color(secColorInput.value);
@@ -346,6 +551,29 @@ function fitView(object3D){
     bboxMin.copy(box.min);
     bboxSize=Math.max(size.x,size.y,size.z);
 
+    // === Auto単位推定（BBoxサイズから） ===
+    if(modelUnitSel.value === "auto"){
+      // 人体モデルの身長は約1500-2000mm = 150-200cm = 1.5-2.0m
+      // bboxSizeが最大寸法なので、人体なら身長程度
+      if(bboxSize >= 500 && bboxSize <= 5000){
+        // おそらく mm 単位（500mm〜5000mm = 50cm〜5m）
+        autoModelUnitToCmGuess = 0.1;
+        showToast(`単位推定: mm（BBox=${bboxSize.toFixed(0)}）`, "success");
+      } else if(bboxSize >= 50 && bboxSize < 500){
+        // おそらく cm 単位（50cm〜500cm）
+        autoModelUnitToCmGuess = 1.0;
+        showToast(`単位推定: cm（BBox=${bboxSize.toFixed(1)}）`, "success");
+      } else if(bboxSize >= 0.5 && bboxSize < 50){
+        // おそらく m 単位（0.5m〜50m）
+        autoModelUnitToCmGuess = 100.0;
+        showToast(`単位推定: m（BBox=${bboxSize.toFixed(2)}）`, "success");
+      } else {
+        // 範囲外：デフォルトcm
+        autoModelUnitToCmGuess = 1.0;
+        showToast(`単位推定: 不明、cm仮定（BBox=${bboxSize.toFixed(2)}）`, "error");
+      }
+    }
+
     controls.target.copy(bboxCenter);
     camera.position.copy(bboxCenter).add(new THREE.Vector3(bboxSize*1.2,bboxSize*1.2,bboxSize*1.2));
     camera.near=Math.max(bboxSize/1000,0.001); camera.far=bboxSize*20;
@@ -359,6 +587,7 @@ function fitView(object3D){
 
     applyClippingToMeshes(clipEnabled);
     groundY = bboxMin.y; // 底面更新
+    updateGroundYDisplay();
     updatePlane();
   }
 }
@@ -368,22 +597,62 @@ function clearSections(){ while(sectionGroup.children.length) sectionGroup.remov
 function clearOverlay(){ while(overlayGroup.children.length) overlayGroup.remove(overlayGroup.children[0]); while(caliperGroup.children.length) caliperGroup.remove(caliperGroup.children[0]); caliperWU=caliperDV=null; updateHUD(); }
 
 /* 読み込み */
-function loadSingle(url,ext,done){
+function loadSingle(url, ext, done){
   if (modelUnitSel.value === "auto") {
     if (ext === "gltf" || ext === "glb") autoModelUnitToCmGuess = 100.0;
     else if (ext === "obj")              autoModelUnitToCmGuess = 1.0;
     else                                 autoModelUnitToCmGuess = 1.0;
   }
+  
+  const onError = (err) => {
+    console.error("Load error:", err);
+    showToast(`読み込み失敗: ${err?.message || "不明なエラー"}`, "error", 5000);
+    done();
+  };
+  
   if(ext==="glb"||ext==="gltf"){
-    new GLTFLoader().load(url,(g)=>{ root.add(g.scene); collectMeshes(g.scene); done(); },undefined,done);
+    new GLTFLoader().load(url, (g)=>{ root.add(g.scene); collectMeshes(g.scene); done(); }, undefined, onError);
   }else if(ext==="obj"){
-    new OBJLoader().load(url,(o)=>{ o.traverse(ch=>{ if(ch.isMesh){ if(!ch.material){ ch.material=new THREE.MeshPhongMaterial({color:0x808080,side:THREE.DoubleSide}); } else { ch.material.side=THREE.DoubleSide; } }}); root.add(o); collectMeshes(o); done(); },undefined,done);
-  }else{ done(); }
+    new OBJLoader().load(url, (o)=>{ 
+      o.traverse(ch=>{ 
+        if(ch.isMesh){ 
+          if(!ch.material){ ch.material=new THREE.MeshPhongMaterial({color:0x808080,side:THREE.DoubleSide}); } 
+          else { ch.material.side=THREE.DoubleSide; } 
+        }
+      }); 
+      root.add(o); 
+      collectMeshes(o); 
+      done(); 
+    }, undefined, onError);
+  }else{ 
+    showToast(`未対応フォーマット: .${ext}`, "error");
+    done(); 
+  }
 }
+
 document.getElementById("file").addEventListener("change",e=>{
   const files=Array.from(e.target.files||[]); if(!files.length) return;
   clearRoot(); clearSections(); clearOverlay(); applySoloMode(false);
-  let pending=files.length; const done=()=>{ if(--pending===0){ fitView(root); applySectionFromUI(); if(isWire) setWireframe(true); } };
+  showLoading();
+  let pending=files.length; 
+  const done=()=>{ 
+    if(--pending===0){ 
+      hideLoading();
+      if(loadedMeshes.length > 0){
+        fitView(root); 
+        applySectionFromUI(); 
+        if(isWire) setWireframe(true);
+        // 頂点数警告
+        let totalVerts = 0;
+        loadedMeshes.forEach(m => { totalVerts += m.geometry.getAttribute('position')?.count || 0; });
+        if(totalVerts > 100000){
+          showToast(`⚠ 頂点数: ${(totalVerts/1000).toFixed(0)}K — 動作が重い場合はBlenderで軽量化を推奨`, "error", 6000);
+        } else {
+          showToast(`読み込み完了: ${loadedMeshes.length}メッシュ, ${(totalVerts/1000).toFixed(1)}K頂点`, "success");
+        }
+      }
+    } 
+  };
   files.forEach(f=>{ const url=URL.createObjectURL(f); const ext=f.name.toLowerCase().split('.').pop(); loadSingle(url,ext,done); });
 });
 
@@ -404,6 +673,7 @@ function stitchSegments(segs,eps){
   }
   return polylines;
 }
+
 function rebuildSection(){
   clearSections(); clearOverlay();
   if(!loadedMeshes.length) return;
@@ -461,6 +731,7 @@ function rebuildSection(){
   applySectionLineColors();
   updateHUD();
 }
+
 function highlightSelection(sel){
   const normal = new THREE.Color(document.getElementById('secColor').value);
   const selected = new THREE.Color(document.getElementById('selColor').value);
@@ -528,6 +799,7 @@ function onPointerDown(ev){
   }
   clearPicks();
 }
+
 function handleMeasurePoint(p,shift){
   if(!p||!pickA) return;
   const pickB=p.clone(); drawPick(pickB);
@@ -693,60 +965,179 @@ function applySectionFromUI(){
 /* ===== ログ ===== */
 const logPanel = document.getElementById("logPanel");
 const logList  = document.getElementById("logList");
+const logLineWidthInput = document.getElementById("logLineWidth");
 let sectionLogs = [];
-try{ sectionLogs = JSON.parse(localStorage.getItem("v1_6_sectionLogs")||"[]"); }catch{}
+// localStorageからの復元（座標なしのログのみ、ラインは復元しない）
+try{ 
+  const saved = JSON.parse(localStorage.getItem("v1_7_sectionLogs")||"[]");
+  sectionLogs = saved.map(m => ({...m, lineId: null})); // lineIdはセッションごとにリセット
+}catch{}
+
 function renderLogs(){
   logList.innerHTML = "";
-  sectionLogs.forEach((m,idx)=>{
+  sectionLogs.forEach((m, idx)=>{
     const li = document.createElement("li");
-    li.style.marginBottom="4px";
-    li.textContent = `#${sectionLogs.length-idx} ${new Date(m.ts).toLocaleString()} - ${m.mode} `
-      + (m.mode==="H"?`H=${m.height_mm}mm`: `d=${m.center_mm}mm`)
-      + ` / 周長=${m.perim} ${m.unit} / 幅=${m.width} ${m.unit} / 厚み=${m.thick} ${m.unit}`;
+    li.style.marginBottom = "6px";
+    li.style.display = "flex";
+    li.style.alignItems = "center";
+    li.style.gap = "6px";
+    
+    // 表示/非表示ボタン
+    const eyeBtn = document.createElement("button");
+    eyeBtn.style.cssText = "padding:2px 6px;font-size:12px;min-width:24px";
+    const entry = logLineEntries.find(e => e.id === m.lineId);
+    eyeBtn.textContent = (entry && entry.visible) ? "👁" : "👁‍🗨";
+    eyeBtn.title = "表示/非表示";
+    eyeBtn.disabled = !entry;
+    eyeBtn.addEventListener("click", () => {
+      if(entry){
+        entry.visible = !entry.visible;
+        entry.line.visible = entry.visible;
+        eyeBtn.textContent = entry.visible ? "👁" : "👁‍🗨";
+      }
+    });
+    
+    // 削除ボタン
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "×";
+    delBtn.style.cssText = "padding:2px 6px;font-size:12px;color:#f66";
+    delBtn.title = "このログを削除";
+    delBtn.addEventListener("click", () => {
+      // 3Dラインも削除
+      if(m.lineId !== null){
+        const entryIdx = logLineEntries.findIndex(e => e.id === m.lineId);
+        if(entryIdx >= 0){
+          logLinesGroup.remove(logLineEntries[entryIdx].line);
+          logLineEntries[entryIdx].line.geometry.dispose();
+          logLineEntries[entryIdx].line.material.dispose();
+          logLineEntries.splice(entryIdx, 1);
+        }
+      }
+      // ログから削除
+      sectionLogs.splice(idx, 1);
+      saveLogsToStorage();
+      renderLogs();
+      showToast("ログを削除しました", "success");
+    });
+    
+    // カラーインジケーター
+    const colorDot = document.createElement("span");
+    colorDot.style.cssText = `display:inline-block;width:10px;height:10px;border-radius:50%;background:${entry ? '#'+entry.color.toString(16).padStart(6,'0') : '#666'}`;
+    
+    // テキスト
+    const text = document.createElement("span");
+    text.style.fontSize = "11px";
+    text.textContent = `#${sectionLogs.length - idx} ${new Date(m.ts).toLocaleString()} - ${m.mode} `
+      + (m.mode==="H" ? `H=${m.height_mm}mm` : `d=${m.center_mm}mm`)
+      + ` / 周長=${m.perim} ${m.unit}`;
+    
+    li.appendChild(eyeBtn);
+    li.appendChild(delBtn);
+    li.appendChild(colorDot);
+    li.appendChild(text);
     logList.appendChild(li);
   });
 }
 renderLogs();
+
+function saveLogsToStorage(){
+  // 座標データは保存しない（lineIdもnullにして保存）
+  const toSave = sectionLogs.map(m => {
+    const copy = {...m};
+    delete copy.lineId;
+    delete copy.points;
+    return copy;
+  });
+  try{ localStorage.setItem("v1_7_sectionLogs", JSON.stringify(toSave)); }catch{}
+}
+
+function createLogLine(points, colorHex){
+  const geo = new THREE.BufferGeometry().setFromPoints(points);
+  const mat = new THREE.LineBasicMaterial({ 
+    color: colorHex, 
+    linewidth: parseInt(logLineWidthInput.value) || 2 
+  });
+  const line = new THREE.Line(geo, mat);
+  return line;
+}
+
 function pushLog(rec){
   sectionLogs.unshift(rec);
-  try{ localStorage.setItem("v1_6_sectionLogs", JSON.stringify(sectionLogs)); }catch{}
+  saveLogsToStorage();
   renderLogs();
 }
+
 function exportLogsCSV(){
-  if(!sectionLogs.length) return;
+  if(!sectionLogs.length){ showToast("ログがありません", "error"); return; }
   const rows = [["#","time","mode","height_mm","center_mm","Nx","Ny","Nz","unit","perimeter","width","thickness"]];
   const asc = [...sectionLogs].reverse();
   asc.forEach((m,i)=>{
     rows.push([i+1,new Date(m.ts).toLocaleString(),m.mode, m.height_mm??"", m.center_mm??"", m.nx, m.ny, m.nz, m.unit, m.perim, m.width, m.thick]);
   });
-  const csv = rows.map(r=>r.map(s=>String(s).replace(/"/g,'""')).map(s=>/[,\"\n]/.test(s)?`"${s}"`:s).join(",")).join("\\n");
-  const blob = new Blob(["\\ufeff"+csv], {type:"text/csv;charset=utf-8;"});
+  const csv = rows.map(r=>r.map(s=>String(s).replace(/"/g,'""')).map(s=>/[,"\n]/.test(s)?`"${s}"`:s).join(",")).join("\n");
+  const blob = new Blob(["\ufeff"+csv], {type:"text/csv;charset=utf-8;"});
   const url=URL.createObjectURL(blob); const a=document.createElement("a");
   a.href=url; a.download="section-logs.csv"; document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(url); a.remove();},0);
+  showToast("CSVをダウンロードしました", "success");
 }
+
 function captureNow(){
-  if(selectedPolyline && (caliperWU==null||caliperDV==null)) computeCalipers();
+  if(!selectedPolyline){ showToast("断面が選択されていません", "error"); return; }
+  if(caliperWU==null||caliperDV==null) computeCalipers();
+  
   const u = unitSuffix();
   const perim = (selectedPerimeterRaw!=null)? Number(toDisplay(selectedPerimeterRaw).toFixed(2)) : "";
   const width = (caliperWU!=null)? Number(toDisplay(caliperWU).toFixed(2)) : "";
   const thick = (caliperDV!=null)? Number(toDisplay(caliperDV).toFixed(2)) : "";
   const mode = sectionModeSel.value;
+  
+  // 3Dラインを作成
+  const lineId = logLineIdCounter++;
+  const colorHex = getLogLineColor(lineId);
+  const points = selectedPolyline.points.map(p => p.clone());
+  const line = createLogLine(points, colorHex);
+  logLinesGroup.add(line);
+  logLineEntries.push({ id: lineId, line, visible: true, color: colorHex });
+  
   const rec = {
     ts: Date.now(),
     mode,
     height_mm: (mode==="H") ? Number(heightMm.value||0) : null,
     center_mm: (mode!=="H") ? Number(vOffsetMm.value||0) : null,
     nx: Number($nx.value), ny: Number($ny.value), nz: Number($nz.value),
-    unit: u, perim, width, thick
+    unit: u, perim, width, thick,
+    lineId: lineId
   };
   pushLog(rec);
+  
   const val = (mode==="H") ? `${rec.height_mm}mm` : `${rec.center_mm}mm`;
   const a=document.createElement("a");
   a.href=renderer.domElement.toDataURL("image/png");
   a.download = `sec_${mode}_${val}_P${perim||"na"}_${u}.png`;
   a.click();
+  showToast("Capture完了 + ログ記録 + 3Dライン追加", "success");
 }
+
+// ライン太さ変更
+logLineWidthInput.addEventListener("change", () => {
+  const w = parseInt(logLineWidthInput.value) || 2;
+  logLineEntries.forEach(entry => {
+    entry.line.material.linewidth = w;
+    entry.line.material.needsUpdate = true;
+  });
+});
+
+// 全ラインの表示/非表示トグル
+document.getElementById("logLinesToggleBtn").addEventListener("click", () => {
+  const allVisible = logLineEntries.every(e => e.visible);
+  logLineEntries.forEach(entry => {
+    entry.visible = !allVisible;
+    entry.line.visible = entry.visible;
+  });
+  renderLogs();
+  showToast(allVisible ? "全ライン非表示" : "全ライン表示", "success");
+});
 
 
 /* ===== Export @Scale (Orthographic, fixed mm/px) ===== */
@@ -757,7 +1148,7 @@ const expMargin = document.getElementById("expMargin");
 let orthoCam = new THREE.OrthographicCamera(-1,1,1,-1,0.001,10000);
 function pxPerMm(){ return 1 / Math.max(0.0001, Number(expMmPerPx.value||1)); }
 function exportAtScale(){
-  if(!selectedPolyline){ alert("断面が未選択です。まず断面ラインをクリックしてください。"); return; }
+  if(!selectedPolyline){ showToast("断面が未選択です。まず断面ラインをクリックしてください。", "error"); return; }
   const W = Math.max(64, Math.floor(Number(expWpx.value||1200)));
   const H = Math.max(64, Math.floor(Number(expHpx.value||1200)));
   const marginPx = Math.max(0, Math.floor(Number(expMargin.value||0)));
@@ -795,7 +1186,7 @@ function exportAtScale(){
     const needW = (maxU-minU)/2 + marginWorld;
     const needH = (maxV-minV)/2 + marginWorld;
     if(needW>halfW || needH>halfH){
-      console.warn("Frame overflow at fixed scale. Increase canvas size or mm/px.");
+      showToast("⚠ 断面がフレームをはみ出します。W/Hを増やすか mm/px を大きくしてください", "error", 5000);
     }
   })();
 
@@ -846,6 +1237,8 @@ function exportAtScale(){
   renderer.setPixelRatio(oldPixelRatio);
   renderer.autoClear = prevAutoClear;
   camera.position.copy(oldCam.pos); camera.up.copy(oldCam.up); camera.near=oldCam.near; camera.far=oldCam.far; camera.fov=oldCam.fov; camera.quaternion.copy(oldCam.q); camera.updateProjectionMatrix(); controls.target.copy(oldCam.target); controls.update();
+  
+  showToast("Export @Scale 完了", "success");
 }
 document.getElementById("exportScaleBtn").addEventListener("click", exportAtScale);
 
@@ -868,6 +1261,13 @@ document.getElementById("flipViewBtn").addEventListener("click",()=>{ viewSide =
 document.getElementById("upAxisBtn").addEventListener("click",()=>{ upAxis = (upAxis==="u"?"v":"u"); document.getElementById("upAxisBtn").textContent = "Up Axis: "+(upAxis.toUpperCase()); alignViewToPlane(); });
 document.getElementById("soloBtn").addEventListener("click",()=>{ applySoloMode(!soloMode); document.getElementById("soloBtn").textContent = "Solo View: "+(soloMode?"ON":"OFF"); });
 
+/* Normal Snap ボタン（修正：ハンドラ追加） */
+document.getElementById("normalSnapBtn").addEventListener("click",()=>{ 
+  normalSnap = (normalSnap==="FREE"?"AXIS":"FREE"); 
+  document.getElementById("normalSnapBtn").textContent = "Normal: "+normalSnap; 
+  updatePlane();
+});
+
 document.getElementById("off0Btn").addEventListener("click",()=>{ $offset.value="0"; updatePlane(); });
 document.getElementById("offMinusBtn").addEventListener("click",()=>offsetStep(-0.01));
 document.getElementById("offPlusBtn").addEventListener("click",()=>offsetStep(+0.01));
@@ -887,7 +1287,20 @@ document.getElementById("rotReset").addEventListener("click",()=>{ root.rotation
 
 /* Section */
 sectionModeSel.addEventListener("change", applySectionFromUI);
-groundBtn.addEventListener("click",()=>{ groundY = bboxMin.y; applySectionFromUI(); });
+autoFootBtn.addEventListener("click", autoDetectFootBase);
+groundBtn.addEventListener("click",()=>{ groundY = bboxMin.y; updateGroundYDisplay(); applySectionFromUI(); showToast(`BBox底面: Y=${modelToMm(groundY).toFixed(0)}mm`, "success"); });
+groundY0Btn.addEventListener("click",()=>{ groundY = 0; updateGroundYDisplay(); applySectionFromUI(); showToast("Ground Y = 0mm に設定", "success"); });
+setCurrentAsGroundBtn.addEventListener("click",()=>{ 
+  // 現在の断面Y座標を新しいgroundYとして設定
+  const currentHeight = parseFloat(heightMm.value) || 0;
+  const currentPlaneY = groundY + mmToModel(currentHeight);
+  groundY = currentPlaneY;
+  heightMm.value = "0";
+  updateGroundYDisplay();
+  applySectionFromUI();
+  showToast(`現在位置を0mmに設定（Ground Y = ${modelToMm(groundY).toFixed(0)}mm）`, "success");
+});
+groundYMm.addEventListener("change",()=>{ groundY = mmToModel(parseFloat(groundYMm.value)||0); applySectionFromUI(); });
 applyHeightBtn.addEventListener("click", applySectionFromUI);
 applyVBtn.addEventListener("click", applySectionFromUI);
 heightMm.addEventListener("change", applySectionFromUI);
@@ -896,7 +1309,20 @@ vOffsetMm.addEventListener("change", applySectionFromUI);
 /* Log UI */
 document.getElementById("logToggleBtn").addEventListener("click",()=>{ const on = logPanel.style.display!=="none"; logPanel.style.display = on?"none":"block"; document.getElementById("logToggleBtn").textContent = "Log: "+(on?"OFF":"ON"); });
 document.getElementById("logCsvBtn").addEventListener("click", exportLogsCSV);
-document.getElementById("logClearBtn").addEventListener("click",()=>{ sectionLogs=[]; try{localStorage.setItem("v1_6_sectionLogs","[]");}catch{}; renderLogs(); });
+document.getElementById("logClearBtn").addEventListener("click",()=>{ 
+  // 3Dラインも全削除
+  logLineEntries.forEach(entry => {
+    logLinesGroup.remove(entry.line);
+    entry.line.geometry.dispose();
+    entry.line.material.dispose();
+  });
+  logLineEntries.length = 0;
+  
+  sectionLogs = []; 
+  try{localStorage.setItem("v1_7_sectionLogs","[]");}catch{}; 
+  renderLogs(); 
+  showToast("ログと3Dラインをクリアしました", "success"); 
+});
 
 addEventListener("pointerdown", onPointerDown);
 addEventListener("keydown",(e)=>{ if(e.key==="Escape") clearPicks(); });
@@ -905,7 +1331,32 @@ addEventListener("resize",()=>{ renderer.setSize(innerWidth,innerHeight); camera
 /* D&D */
 const drop=document.getElementById("drop");
 ["dragenter","dragover"].forEach(ev=>document.addEventListener(ev,(e)=>{e.preventDefault(); drop.classList.add("show");}));
-["dragleave","drop"].forEach(ev=>document.addEventListener(ev,(e)=>{e.preventDefault(); if(ev==="drop"){ const files=[...e.dataTransfer.files]; if(files.length){ clearRoot(); clearSections(); clearOverlay(); applySoloMode(false); let pending=files.length; const done=()=>{ if(--pending===0) { fitView(root); applySectionFromUI(); } }; files.forEach(f=>{ const url=URL.createObjectURL(f); const ext=f.name.toLowerCase().split('.').pop(); loadSingle(url,ext,done); }); } } drop.classList.remove("show");}));
+["dragleave","drop"].forEach(ev=>document.addEventListener(ev,(e)=>{e.preventDefault(); if(ev==="drop"){ 
+  const files=[...e.dataTransfer.files]; 
+  if(files.length){ 
+    clearRoot(); clearSections(); clearOverlay(); applySoloMode(false); 
+    showLoading();
+    let pending=files.length; 
+    const done=()=>{ 
+      if(--pending===0) { 
+        hideLoading();
+        if(loadedMeshes.length > 0){
+          fitView(root); 
+          applySectionFromUI();
+          // 頂点数警告
+          let totalVerts = 0;
+          loadedMeshes.forEach(m => { totalVerts += m.geometry.getAttribute('position')?.count || 0; });
+          if(totalVerts > 100000){
+            showToast(`⚠ 頂点数: ${(totalVerts/1000).toFixed(0)}K — 動作が重い場合はBlenderで軽量化を推奨`, "error", 6000);
+          } else {
+            showToast(`読み込み完了: ${loadedMeshes.length}メッシュ, ${(totalVerts/1000).toFixed(1)}K頂点`, "success");
+          }
+        }
+      } 
+    }; 
+    files.forEach(f=>{ const url=URL.createObjectURL(f); const ext=f.name.toLowerCase().split('.').pop(); loadSingle(url,ext,done); }); 
+  } 
+} drop.classList.remove("show");}));
 
 /* 初期化 */
 saveHomeFromCurrent();
